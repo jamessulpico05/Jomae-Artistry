@@ -1,0 +1,112 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Owner Login | Jomae Artistry</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: #11100e;
+      color: #f7f2e9;
+      font-family: "DM Sans", sans-serif;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      padding: 36px;
+      border: 1px solid #39342b;
+      border-radius: 16px;
+      background: #1b1916;
+    }
+    .login-card h1 {
+      font-family: "Playfair Display", serif;
+      margin-bottom: 10px;
+    }
+    .login-card p { color: #c3bdb2; }
+    .login-card label {
+      display: block;
+      margin: 18px 0 8px;
+    }
+    .login-card input {
+      width: 100%;
+      padding: 13px;
+      border-radius: 8px;
+      border: 1px solid #514a3e;
+      background: #11100e;
+      color: white;
+    }
+    .login-card button {
+      width: 100%;
+      margin-top: 22px;
+      padding: 14px;
+      border: 0;
+      border-radius: 8px;
+      background: #c6a15b;
+      color: #171513;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #loginStatus { margin-top: 16px; }
+    .back-link { display: inline-block; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <main class="login-card">
+    <h1>Jomae Artistry</h1>
+    <p>Owner Login</p>
+
+    <form id="loginForm">
+      <label for="email">Owner Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+
+      <label for="password">Password</label>
+      <input id="password" type="password"
+        autocomplete="current-password" required>
+
+      <button type="submit">Sign In</button>
+      <p id="loginStatus" role="status" aria-live="polite"></p>
+    </form>
+
+    <a class="back-link" href="index.html">← Back to website</a>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = "https://ujeoxgfvaijgsboahduu.supabase.co";
+const SUPABASE_KEY = "sb_publishable_JSDlFlmBwzFjDOROENdfow_DWX6q9f7";
+
+    const supabaseClient = window.supabase.createClient(
+      SUPABASE_URL, SUPABASE_KEY
+    );
+
+    const loginForm = document.getElementById("loginForm");
+    const loginStatus = document.getElementById("loginStatus");
+
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      loginStatus.textContent = "Signing in...";
+
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value
+      });
+
+      if (error) {
+        loginStatus.textContent = "Login failed. Check your email and password.";
+        console.error(error);
+        return;
+      }
+
+      if (data.user) {
+        window.location.href = "dashboard.html";
+      }
+    });
+  </script>
+</body>
+</html>

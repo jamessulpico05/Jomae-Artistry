@@ -1,0 +1,131 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Dashboard | Jomae Artistry</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      background: #11100e;
+      color: #f7f2e9;
+      padding: 30px 5%;
+      font-family: Arial, sans-serif;
+    }
+    h1 { color: #c6a15b; }
+    .table-wrap { overflow-x: auto; margin-top: 24px; }
+    table { width: 100%; border-collapse: collapse; min-width: 700px; }
+    th, td {
+      border: 1px solid #39342b;
+      padding: 12px;
+      text-align: left;
+    }
+    th { background: #29251e; color: #c6a15b; }
+    td { overflow-wrap: anywhere; }
+    button {
+      padding: 10px 16px;
+      margin: 8px 8px 8px 0;
+      cursor: pointer;
+    }
+    #status { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Jomae Artistry</h1>
+  <h2>Booking Inquiries</h2>
+  <p>View customer requests received through your website.</p>
+
+  <button id="refreshButton">Refresh Bookings</button>
+  <button id="logoutButton">Sign Out</button>
+  <p id="status" role="status">Checking your login...</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Service</th>
+          <th>Event Date</th>
+          <th>Message</th>
+          <th>Received</th>
+        </tr>
+      </thead>
+      <tbody id="bookingRows"></tbody>
+    </table>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = "https://ujeoxgfvaijgsboahduu.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_JSDlFlmBwzFjDOROENdfow_DWX6q9f7";
+
+    const client = window.supabase.createClient(
+      SUPABASE_URL, SUPABASE_KEY
+    );
+
+    const statusText = document.getElementById("status");
+    const bookingRows = document.getElementById("bookingRows");
+
+    async function loadBookings() {
+      statusText.textContent = "Loading bookings...";
+      bookingRows.replaceChildren();
+
+      const { data: { user }, error: authError } =
+        await client.auth.getUser();
+
+      if (authError || !user) {
+        window.location.replace("admin.html");
+        return;
+      }
+
+      const { data, error } = await client
+        .from("booking_inquiries")
+        .select("id, name, email, service, event_date, message, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        statusText.textContent =
+          "Could not load bookings. Check your database permissions.";
+        return;
+      }
+
+      for (const booking of data) {
+        const row = document.createElement("tr");
+
+        for (const value of [
+          booking.name,
+          booking.email,
+          booking.service,
+          booking.event_date || "Not provided",
+          booking.message,
+          booking.created_at
+            ? new Date(booking.created_at).toLocaleString()
+            : ""
+        ]) {
+          const cell = document.createElement("td");
+          cell.textContent = value ?? "";
+          row.appendChild(cell);
+        }
+
+        bookingRows.appendChild(row);
+      }
+
+      statusText.textContent = `${data.length} booking(s) found.`;
+    }
+
+    document.getElementById("refreshButton")
+      .addEventListener("click", loadBookings);
+
+    document.getElementById("logoutButton")
+      .addEventListener("click", async () => {
+        await client.auth.signOut();
+        window.location.replace("admin.html");
+      });
+
+    loadBookings();
+  </script>
+</body>
+</html>
