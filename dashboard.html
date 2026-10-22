@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Booking Dashboard | Jomae Artistry</title>
   <link rel="stylesheet" href="style.css">
+
   <style>
     body {
       background: #11100e;
@@ -13,24 +14,60 @@
       padding: 30px 5%;
       font-family: Arial, sans-serif;
     }
+
     h1 { color: #c6a15b; }
-    .table-wrap { overflow-x: auto; margin-top: 24px; }
-    table { width: 100%; border-collapse: collapse; min-width: 700px; }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 24px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 800px;
+    }
+
     th, td {
       border: 1px solid #39342b;
       padding: 12px;
       text-align: left;
     }
-    th { background: #29251e; color: #c6a15b; }
+
+    th {
+      background: #29251e;
+      color: #c6a15b;
+    }
+
     td { overflow-wrap: anywhere; }
+
     button {
       padding: 10px 16px;
       margin: 8px 8px 8px 0;
       cursor: pointer;
     }
+
+    .delete-button {
+      background: #a83232;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 8px 12px;
+    }
+
+    .delete-button:hover {
+      background: #c74444;
+    }
+
+    .delete-button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
     #status { margin-top: 16px; }
   </style>
 </head>
+
 <body>
   <h1>Jomae Artistry</h1>
   <h2>Booking Inquiries</h2>
@@ -50,6 +87,7 @@
           <th>Event Date</th>
           <th>Message</th>
           <th>Received</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody id="bookingRows"></tbody>
@@ -57,28 +95,40 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <script>
-    const SUPABASE_URL = "https://ujeoxgfvaijgsboahduu.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_JSDlFlmBwzFjDOROENdfow_DWX6q9f7";
+    const SUPABASE_URL =
+      "https://ujeoxgfvaijgsboahduu.supabase.co";
+
+    const SUPABASE_KEY =
+      "sb_publishable_JSDlFlmBwzFjDOROENdfow_DWX6q9f7";
 
     const client = window.supabase.createClient(
-      SUPABASE_URL, SUPABASE_KEY
+      SUPABASE_URL,
+      SUPABASE_KEY
     );
 
     const statusText = document.getElementById("status");
     const bookingRows = document.getElementById("bookingRows");
 
+    async function checkOwner() {
+      const { data: { user }, error } =
+        await client.auth.getUser();
+
+      if (error || !user) {
+        window.location.replace("admin.html");
+        return false;
+      }
+
+      return true;
+    }
+
     async function loadBookings() {
       statusText.textContent = "Loading bookings...";
       bookingRows.replaceChildren();
 
-      const { data: { user }, error: authError } =
-        await client.auth.getUser();
-
-      if (authError || !user) {
-        window.location.replace("admin.html");
-        return;
-      }
+      const isOwner = await checkOwner();
+      if (!isOwner) return;
 
       const { data, error } = await client
         .from("booking_inquiries")
@@ -92,10 +142,16 @@
         return;
       }
 
+      if (!data || data.length === 0) {
+        statusText.textContent = "No bookings found.";
+        return;
+      }
+
       for (const booking of data) {
         const row = document.createElement("tr");
+        row.dataset.bookingId = booking.id;
 
-        for (const value of [
+        const values = [
           booking.name,
           booking.email,
           booking.service,
@@ -104,16 +160,79 @@
           booking.created_at
             ? new Date(booking.created_at).toLocaleString()
             : ""
-        ]) {
+        ];
+
+        for (const value of values) {
           const cell = document.createElement("td");
           cell.textContent = value ?? "";
           row.appendChild(cell);
         }
 
+        // Add the Delete button
+        const actionCell = document.createElement("td");
+        const deleteButton = document.createElement("button");
+
+        deleteButton.type = "button";
+        deleteButton.className = "delete-button";
+        deleteButton.textContent = "🗑️ Delete";
+
+        deleteButton.addEventListener("click", () => {
+          deleteBooking(booking.id, row, deleteButton);
+        });
+
+        actionCell.appendChild(deleteButton);
+        row.appendChild(actionCell);
         bookingRows.appendChild(row);
       }
 
       statusText.textContent = `${data.length} booking(s) found.`;
+    }
+
+    async function deleteBooking(bookingId, row, button) {
+      const confirmed = window.confirm(
+        "Are you sure you want to permanently delete this booking? This cannot be undone."
+      );
+
+      if (!confirmed) return;
+
+      button.disabled = true;
+      button.textContent = "Deleting...";
+
+      try {
+        // Confirm the owner is still signed in
+        const isOwner = await checkOwner();
+        if (!isOwner) return;
+
+        const { data, error } = await client
+          .from("booking_inquiries")
+          .delete()
+          .eq("id", bookingId)
+          .select("id");
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          button.disabled = false;
+          button.textContent = "🗑️ Delete";
+          statusText.textContent =
+            "Booking was not deleted. Check your Supabase DELETE policy.";
+          return;
+        }
+
+        row.remove();
+        statusText.textContent = "Booking deleted successfully.";
+
+        if (bookingRows.children.length === 0) {
+          statusText.textContent = "No bookings found.";
+        }
+
+      } catch (error) {
+        console.error("Delete booking error:", error);
+        statusText.textContent =
+          "Could not delete booking. Check your Supabase permissions.";
+        button.disabled = false;
+        button.textContent = "🗑️ Delete";
+      }
     }
 
     document.getElementById("refreshButton")
